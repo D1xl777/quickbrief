@@ -37,14 +37,14 @@ There's no build step, so there's nothing to configure.
 
 - **Round:** 5 questions, 20 s each. The timer uses timestamps, so it stays correct if the tab is backgrounded.
   If time runs out you get 0, unless an "I heard: …" value is on screen; that value is submitted.
-- **Input:** the mic (tap to toggle, or hold to talk and release) uses the Web Speech API in the selected language
-  (EN = `en-US`, RU = `ru-RU`). The number field is always there, and typed text goes through the same parser.
+- **Input:** the mic (tap to toggle, or hold to talk and release) uses the Web Speech API (`en-US`).
+  The number field is always there, and typed text goes through the same parser.
   Browsers without speech recognition (e.g. Firefox) just show the input field.
-- **Spoken number parser** (`parseSpokenNumber`): digits with `,` / space / NBSP separators, decimal comma or point,
-  English and Russian number words (including common oblique and ordinal forms), scales
-  (`thousand`, `million`, `тысяч`, `млн`, `млрд`, `k`, …), `1.5 million`, `полтора миллиона`, `полмиллиона`,
-  `half a million`, `два с половиной миллиона`, `two point five million`, and year phrasing such as
-  `nineteen eighty nine` or `тысяча девятьсот сорок пятом году`. If parsing fails, it asks you to type.
+- **Spoken number parser** (`parseSpokenNumber`): digits with `,` / space separators, decimals, number words
+  (`eight thousand eight hundred forty-eight`), scales (`thousand`, `million`, `billion`, `k`), `1.5 million`,
+  `half a million`, `two point five million`, and year phrasing such as `nineteen eighty nine`.
+  (It also understands Russian number words.) If parsing fails, it asks you to type.
+- **Score:** each question is worth up to 1,000 points, so the maximum for a round is **5,000**.
 - **Scoring:**
   - `ratio` (default): `points = round(1000 · exp(−3 · |ln(guess/truth)|))`. A guess ≤ 0 scores 0.
   - `year`: `points = round(1000 · max(0, 1 − |guess − truth| / span))`, where `span` defaults to 50.
@@ -58,7 +58,10 @@ There's no build step, so there's nothing to configure.
 |---|---|---|
 | DAILY | UTC date `YYYYMMDD` | One result per day (kept in localStorage). Daily #1 = 2026-10-02 UTC. |
 | PRACTICE | random | TRY AGAIN starts a new random round immediately. |
-| CHALLENGE | from the URL | `?seed=<seed>&b=<name:score,...>` |
+| COMPETE WITH FRIENDS | random, then carried in the link | `?seed=<seed>&b=<name:score,...>` |
+
+**Compete with friends:** enter your name, play 5 questions, then tap SEND TO FRIENDS. Friends who open the link
+get the same 5 questions, and the end screen shows a leaderboard of everyone who has played that link.
 
 **Challenge links:** `b` holds up to 10 `name:score` entries, sorted by score. Names are URL-encoded and capped at
 12 characters. Opening a link shows `FRIEND TO BEAT: <top name> — <score>` and plays that seed. The end screen shows
@@ -78,7 +81,6 @@ Personal bests are stored per mode in localStorage (`ce_best_daily`, `ce_best_pr
 {
   "id": 1,
   "text_en": "How tall is Mount Everest?",
-  "text_ru": "Какова высота Эвереста?",
   "answer": 8849,
   "unit": "m",
   "type": "ratio",
@@ -86,14 +88,12 @@ Personal bests are stored per mode in localStorage (`ce_best_daily`, `ce_best_pr
   "category": "geography",
   "source_url": "https://en.wikipedia.org/wiki/Mount_Everest",
   "fact": "optional one-liner",
-  "fact_ru": "optional Russian one-liner",
   "verify": true
 }
 ```
 
 - `type` is `"ratio"` (default) or `"year"`. `span` only applies to `year` questions.
 - Questions with `"verify": true` are **skipped** by the selector until you check them and remove the flag.
-- `fact_ru` is optional; the English `fact` is shown when it's missing.
 - Keep `id`s unique and stable. Adding or removing questions changes which 5 a given seed picks, so old challenge
   links will point at a different set.
-- `unit` is shown as written, except that `m`, `km`, `km/s`, `m/s`, `s` and `K` are translated for RU.
+- `unit` is shown as written. `category` is shown above the question.

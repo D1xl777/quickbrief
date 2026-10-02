@@ -294,8 +294,10 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof document !== 'undefined') (function () {
   const $ = id => document.getElementById(id);
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  const UNIT_RU = { m: 'м', km: 'км', 'km/s': 'км/с', 'm/s': 'м/с', s: 'с', K: 'К' };
+  const LANG = 'en-US';
+  const MAX = ROUND_SIZE * 1000;
+  const RING_C = 2 * Math.PI * 34;
+  const COLOR = { '🟩': 'g', '🟨': 'y', '🟧': 'o', '🟥': 'r' };
 
   const store = {
     get(k, d) { try { const v = localStorage.getItem('ce_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -304,11 +306,11 @@ if (typeof document !== 'undefined') (function () {
 
   const S = {
     bank: [],
-    lang: store.get('lang', (navigator.language || '').startsWith('ru') ? 'ru-RU' : 'en-US'),
-    name: store.get('name', ''),
+    name: cleanName(store.get('name', '')),
     mode: null,         // 'daily' | 'practice' | 'challenge'
     seed: 0,
-    board: [],          // challenge board from URL (updated after each round)
+    invited: false,     // opened from a challenge link
+    board: [],          // challenge leaderboard (from the link, updated after each round)
     friend: null,       // friend to beat at round start
     qs: [], idx: 0, results: [],
     deadline: 0, timerId: 0, answered: false,
@@ -330,48 +332,78 @@ if (typeof document !== 'undefined') (function () {
     toast.t = setTimeout(() => { t.hidden = true; }, 1600);
   }
 
+  function countUp(el, to, ms = 700) {
+    const t0 = performance.now();
+    const step = now => {
+      const k = Math.min(1, (now - t0) / ms);
+      el.textContent = fmtInt(to * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    el.textContent = '0';
+    requestAnimationFrame(step);
+  }
+
   function fmtAnswer(q, v) {
     if (v === null || v === undefined) return '—';
     if (q.type === 'year') return String(Math.round(v));
     return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
   }
 
-  function unitText(q) {
-    if (!q.unit) return '';
-    return S.lang === 'ru-RU' ? (UNIT_RU[q.unit] || q.unit) : q.unit;
-  }
-
   function sizeClass(el, text) {
-    el.classList.toggle('long', text.length > 9);
-    el.classList.toggle('xlong', text.length > 13);
+    el.classList.toggle('long', text.length > 8);
+    el.classList.toggle('xlong', text.length > 12);
   }
 
-  function myName() { return cleanName(S.name); }
+  function setName(n) {
+    S.name = cleanName(n);
+    store.set('name', S.name);
+    for (const id of ['name-inv', 'name-fr']) if ($(id).value !== S.name) $(id).value = S.name;
+  }
 
   function ensureName() {
-    if (myName()) return myName();
+    if (S.name) return S.name;
     let n = '';
-    try { n = window.prompt('Your name for the board (max 12):', '') || ''; } catch (e) { /* ignore */ }
-    n = cleanName(n) || 'Anon';
-    S.name = n; store.set('name', n); $('name').value = n;
-    return n;
+    try { n = window.prompt('Your name for the leaderboard (max 12):', '') || ''; } catch (e) { /* ignore */ }
+    setName(cleanName(n) || 'Anon');
+    return S.name;
   }
 
-  // ---------- start screen ----------
+  function renderBoard(ol, board, highlight) {
+    ol.textContent = '';
+    const me = (highlight || '').toLowerCase();
+    board.forEach((e, i) => {
+      const li = document.createElement('li');
+      if (i === 0) li.classList.add('top');
+      if (me && e.name.toLowerCase() === me) li.classList.add('me');
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = e.name + (li.classList.contains('me') ? ' (you)' : '');
+      const s = document.createElement('span'); s.className = 's'; s.textContent = fmtInt(e.score);
+      li.append(n, s);
+      ol.appendChild(li);
+    });
+    ol.hidden = board.length === 0;
+  }
+
+  function challengeUrl(seed, board) {
+    return location.origin + location.pathname + '?seed=' + seed + (board.length ? '&b=' + serializeBoard(board) : '');
+  }
+
+  // ---------- start ----------
 
   function renderStart() {
-    $('name').value = S.name;
-    for (const b of document.querySelectorAll('[data-lang]')) b.classList.toggle('on', b.dataset.lang === S.lang);
-
+    setName(S.name);
     const daily = store.get('daily_' + utcDateSeed(), null);
     $('btn-daily').textContent = daily ? 'DAILY ✓ ' + fmtInt(daily.score) : 'DAILY';
 
-    const isChallenge = S.mode === 'challenge';
-    $('btn-challenge').hidden = !isChallenge;
-    const f = isChallenge ? friendToBeat(S.board, myName()) : null;
-    $('challenge-banner').hidden = !f;
-    if (f) { $('cb-name').textContent = f.name; $('cb-score').textContent = fmtInt(f.score); }
-    $('btn-daily').classList.toggle('primary', !isChallenge);
+    const f = S.invited ? friendToBeat(S.board, S.name) : null;
+    $('invite').hidden = !S.invited;
+    $('invite-actions').hidden = !S.invited;
+    $('btn-friends').hidden = S.invited;
+    if (S.invited) {
+      $('inv-name').textContent = f ? f.name : 'A friend';
+      $('inv-score').textContent = f ? fmtInt(f.score) : '—';
+      renderBoard($('inv-board'), S.board, S.name);
+      if (S.board.length < 2) $('inv-board').hidden = true;
+    }
     show('s-start');
   }
 
@@ -383,9 +415,11 @@ if (typeof document !== 'undefined') (function () {
     S.qs = pickQuestions(S.bank, S.seed);
     S.idx = 0;
     S.results = [];
-    S.friend = mode === 'challenge' ? friendToBeat(S.board, myName()) : null;
+    S.friend = mode === 'challenge' ? friendToBeat(S.board, S.name) : null;
     showQuestion();
   }
+
+  const randomSeed = () => (Math.random() * 4294967296) >>> 0;
 
   function startDaily() {
     const seed = utcDateSeed();
@@ -399,21 +433,37 @@ if (typeof document !== 'undefined') (function () {
     startRound('daily', seed);
   }
 
-  function startPractice() {
-    startRound('practice', (Math.random() * 4294967296) >>> 0);
+  function startPractice() { startRound('practice', randomSeed()); }
+
+  function startFriends() {
+    const n = cleanName($('name-fr').value);
+    if (!n) { toast('Enter your name'); $('name-fr').focus(); return; }
+    setName(n);
+    S.board = [];
+    startRound('challenge', randomSeed());
   }
+
+  function acceptChallenge() {
+    const n = cleanName($('name-inv').value);
+    if (!n) { toast('Enter your name'); $('name-inv').focus(); return; }
+    setName(n);
+    startRound('challenge', S.seed);
+  }
+
+  function total() { return S.results.reduce((s, r) => s + r.points, 0); }
 
   function showQuestion() {
     const q = S.qs[S.idx];
     S.answered = false;
     S.pending = null;
-    $('q-idx').textContent = (S.idx + 1) + '/' + S.qs.length;
-    $('q-total').textContent = fmtInt(S.results.reduce((s, r) => s + r.points, 0));
-    $('q-text').textContent = S.lang === 'ru-RU' ? q.text_ru : q.text_en;
-    $('q-unit').textContent = q.type === 'year' ? (S.lang === 'ru-RU' ? 'год' : 'year') : unitText(q);
+    $('q-idx').textContent = (S.idx + 1) + ' / ' + S.qs.length;
+    $('q-total').textContent = fmtInt(total());
+    $('q-cat').textContent = q.category || '';
+    $('q-text').textContent = q.text_en;
+    $('q-unit').textContent = q.type === 'year' ? 'year' : (q.unit || '');
     $('num').value = '';
     $('heard').hidden = true;
-    $('live').textContent = SR ? 'Hold or tap the mic' : '';
+    $('live').textContent = SR ? 'Hold or tap the mic — or type' : '';
     show('s-q');
 
     S.deadline = Date.now() + ANSWER_MS;
@@ -424,13 +474,11 @@ if (typeof document !== 'undefined') (function () {
 
   function tick() {
     const left = Math.max(0, S.deadline - Date.now());
-    $('timer-bar').style.transform = 'scaleX(' + (left / ANSWER_MS) + ')';
+    $('ring-fg').style.strokeDashoffset = String(RING_C * (1 - left / ANSWER_MS));
     $('q-time').textContent = Math.ceil(left / 1000);
-    $('q-time').classList.toggle('low', left <= 5000);
-    if (left <= 0) {
-      // An unconfirmed "I heard" still counts as the player's answer.
-      submit(S.pending);
-    }
+    document.querySelector('.ring').classList.toggle('low', left <= 5000);
+    // An unconfirmed "I heard" still counts as the player's answer.
+    if (left <= 0) submit(S.pending);
   }
 
   function submit(value) {
@@ -447,23 +495,25 @@ if (typeof document !== 'undefined') (function () {
 
   function renderReveal(q, guess, points) {
     const truth = fmtAnswer(q, q.answer);
+    const c = COLOR[emojiFor(points)];
+    $('r-idx').textContent = (S.idx + 1) + ' / ' + S.qs.length;
+    $('r-total').textContent = fmtInt(total());
     $('r-truth').textContent = truth;
     sizeClass($('r-truth'), truth);
-    $('r-unit').textContent = q.type === 'year' ? '' : unitText(q);
-    $('r-you').textContent = 'You: ' + fmtAnswer(q, guess);
-    $('r-points').textContent = '+' + fmtInt(points);
-    $('r-points').className = 'points ' + ({ '🟩': 'g', '🟨': 'y', '🟧': 'o', '🟥': 'r' })[emojiFor(points)];
+    $('r-unit').textContent = q.type === 'year' ? '' : (q.unit || '');
+    $('r-you').textContent = guess === null ? 'No answer' : 'You: ' + fmtAnswer(q, guess);
+    $('r-points').className = 'points ' + c;
+    countUp($('r-points'), points, 600);
     const bar = $('r-bar');
     bar.style.transition = 'none';
     bar.style.transform = 'scaleX(0)';
-    bar.className = 'fill ' + ({ '🟩': 'g', '🟨': 'y', '🟧': 'o', '🟥': 'r' })[emojiFor(points)];
+    bar.className = 'fill ' + c;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       bar.style.transition = '';
       bar.style.transform = 'scaleX(' + (points / 1000) + ')';
     }));
-    const fact = (S.lang === 'ru-RU' && q.fact_ru) ? q.fact_ru : (q.fact || '');
-    $('r-fact').textContent = fact;
-    $('r-fact').hidden = !fact;
+    $('r-fact').textContent = q.fact || '';
+    $('r-fact').hidden = !q.fact;
     $('r-strip').textContent = S.results.map(r => emojiFor(r.points)).join('');
     $('btn-next').textContent = S.idx + 1 < S.qs.length ? 'NEXT' : 'RESULTS';
     show('s-reveal');
@@ -475,35 +525,40 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function finishRound() {
-    const score = S.results.reduce((s, r) => s + r.points, 0);
+    const score = total();
     const strip = S.results.map(r => emojiFor(r.points)).join('');
     const prevBest = store.get('best_' + S.mode, 0);
     if (score > prevBest) store.set('best_' + S.mode, score);
     if (S.mode === 'daily') store.set('daily_' + S.seed, { score, strip });
     S.last = { mode: S.mode, seed: S.seed, score, strip, prevBest, friend: S.friend };
-    if (S.mode === 'challenge' && myName()) S.board = updateBoard(S.board, myName(), score);
+    if (S.mode === 'challenge' && S.name) {
+      S.board = updateBoard(S.board, S.name, score);
+      try { history.replaceState(null, '', challengeUrl(S.seed, S.board)); } catch (e) { /* ignore */ }
+    }
     renderEnd();
   }
 
   function renderEnd() {
     const L = S.last;
     const best = Math.max(store.get('best_' + L.mode, 0), L.score);
-    $('e-score').textContent = fmtInt(L.score);
-    $('e-best').textContent = fmtInt(best);
+    countUp($('e-score'), L.score, 900);
+    $('e-best').textContent = fmtInt(best) + ' / ' + fmtInt(MAX);
     $('e-new').hidden = L.replay || !(L.score > L.prevBest && L.score > 0);
     $('e-strip').textContent = L.strip;
-    $('e-mode').textContent = L.mode === 'daily' ? 'DAILY #' + dailyNumber() : L.mode.toUpperCase();
+    $('e-mode').textContent = L.mode === 'daily' ? 'DAILY #' + dailyNumber()
+      : L.mode === 'challenge' ? 'FRIENDS CHALLENGE' : 'PRACTICE';
 
     const f = L.friend;
     $('e-friend').hidden = !f;
     if (f) {
       const gap = f.score - L.score;
-      const tail = gap > 0 ? fmtInt(gap) + ' to go' : gap < 0 ? 'beaten by ' + fmtInt(-gap) : 'tied';
       $('e-friend-name').textContent = f.name;
       $('e-friend-score').textContent = fmtInt(f.score);
-      $('e-gap').textContent = '(' + tail + ')';
+      $('e-gap').textContent = '(' + (gap > 0 ? fmtInt(gap) + ' to go' : gap < 0 ? 'beaten by ' + fmtInt(-gap) : 'tied') + ')';
       $('e-gap').classList.toggle('win', gap < 0);
     }
+    if (L.mode === 'challenge') renderBoard($('e-board'), S.board, S.name);
+    else $('e-board').hidden = true;
     show('s-end');
   }
 
@@ -513,25 +568,26 @@ if (typeof document !== 'undefined') (function () {
     else startPractice();
   }
 
-  function shareText() {
+  function buildShare() {
     const L = S.last;
     const name = ensureName();
     let board;
     if (L.mode === 'challenge') {
       S.board = updateBoard(S.board, name, L.score);
       board = S.board;
+      renderBoard($('e-board'), S.board, S.name);
     } else {
       board = [{ name, score: L.score }];
     }
-    const url = location.origin + location.pathname + '?seed=' + L.seed + '&b=' + serializeBoard(board);
+    const url = challengeUrl(L.seed, board);
     const head = L.mode === 'daily'
       ? 'CLOSE ENOUGH Daily #' + dailyNumber() + ' — ' + fmtInt(L.score) + ' ' + L.strip
-      : 'CLOSE ENOUGH — ' + fmtInt(L.score) + ' ' + L.strip;
-    return { text: head + '\nBeat me: ' + url, url };
+      : 'CLOSE ENOUGH — ' + fmtInt(L.score) + ' / ' + fmtInt(MAX) + ' ' + L.strip;
+    return head + '\nSame 5 questions. Can you beat me? ' + url;
   }
 
   async function share() {
-    const { text } = shareText();
+    const text = buildShare();
     if (navigator.share) {
       try { await navigator.share({ text }); return; } catch (e) {
         if (e && e.name === 'AbortError') return;
@@ -546,7 +602,7 @@ if (typeof document !== 'undefined') (function () {
       try { document.execCommand('copy'); } catch (e2) { /* ignore */ }
       ta.remove();
     }
-    toast('Copied');
+    toast('Copied — send it to your friends');
   }
 
   // ---------- answering: typed ----------
@@ -566,9 +622,9 @@ if (typeof document !== 'undefined') (function () {
     if (!SR || S.answered || S.listening) return;
     $('heard').hidden = true;
     S.pending = null;
-    let gotFinal = false;
+    let gotFinal = false, failed = false;
     const rec = new SR();
-    rec.lang = S.lang;
+    rec.lang = LANG;
     rec.interimResults = true;
     rec.maxAlternatives = 5;
     rec.continuous = false;
@@ -587,20 +643,21 @@ if (typeof document !== 'undefined') (function () {
       }
     };
     rec.onerror = ev => {
+      failed = true;
       if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
         $('live').textContent = 'Mic blocked — type your answer';
         $('mic').disabled = true;
       } else if (ev.error === 'no-speech') {
-        $('live').textContent = 'Didn’t hear anything';
+        $('live').textContent = 'Didn’t hear anything — try again';
+      } else {
+        failed = false;
       }
     };
     rec.onend = () => {
       S.listening = false;
       S.rec = null;
       $('mic').classList.remove('on');
-      if (!gotFinal && !S.answered && !$('live').textContent.startsWith('Mic') && !$('live').textContent.startsWith('Didn')) {
-        $('live').textContent = 'Hold or tap the mic';
-      }
+      if (!gotFinal && !failed && !S.answered) $('live').textContent = 'Hold or tap the mic — or type';
     };
     try {
       rec.start();
@@ -648,14 +705,14 @@ if (typeof document !== 'undefined') (function () {
   // ---------- init ----------
 
   function readUrl() {
-    const p = new URLSearchParams(location.search);
-    const seedStr = p.get('seed');
+    const seedStr = new URLSearchParams(location.search).get('seed');
     if (seedStr === null || !/^\d{1,10}$/.test(seedStr)) return;
     const seed = Number(seedStr);
     if (seed > 4294967295) return;
+    S.invited = true;
     S.mode = 'challenge';
     S.seed = seed;
-    // URLSearchParams already decoded once; the board itself keeps names encoded, so re-read raw.
+    // Read b= raw: names inside the board are individually URL-encoded.
     const raw = (location.search.match(/[?&]b=([^&]*)/) || [])[1] || '';
     S.board = parseBoard(raw);
   }
@@ -663,13 +720,13 @@ if (typeof document !== 'undefined') (function () {
   function bind() {
     $('btn-daily').onclick = startDaily;
     $('btn-practice').onclick = startPractice;
-    $('btn-challenge').onclick = () => startRound('challenge', S.seed);
-    $('name').addEventListener('input', () => {
-      S.name = cleanName($('name').value);
-      store.set('name', S.name);
-    });
-    for (const b of document.querySelectorAll('[data-lang]')) {
-      b.onclick = () => { S.lang = b.dataset.lang; store.set('lang', S.lang); renderStart(); };
+    $('btn-friends').onclick = () => { setName(S.name); show('s-friends'); };
+    $('btn-fr-start').onclick = startFriends;
+    $('btn-challenge').onclick = acceptChallenge;
+    for (const b of document.querySelectorAll('.back')) b.onclick = renderStart;
+    for (const id of ['name-inv', 'name-fr']) {
+      $(id).addEventListener('change', () => setName($(id).value));
+      $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $(id).blur(); });
     }
     $('type-form').addEventListener('submit', onTyped);
     $('h-ok').onclick = () => submit(S.pending);
