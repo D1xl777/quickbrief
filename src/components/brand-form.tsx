@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionForm } from "@/components/use-action-form";
 import { FormFeedback, fieldError } from "@/components/form-feedback";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
@@ -24,10 +24,10 @@ export function BrandForm({
   selectedJurisdictionIds?: string[];
   submitLabel: string;
 }) {
-  const [state, formAction, pending] = useActionState(action, null);
+  const { state, onSubmit: formAction, pending } = useActionForm(action);
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form onSubmit={formAction} className="space-y-5">
       {brand && <input type="hidden" name="id" value={brand.id} />}
       <FormFeedback state={state} />
       <div className="grid gap-5 sm:grid-cols-2">

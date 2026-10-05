@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionForm } from "@/components/use-action-form";
+import { useEffect, useRef, useState } from "react";
 import { MessageSquarePlus, ScanSearch, Send } from "lucide-react";
 import { addComment, reviewSubmission } from "@/actions/reviews";
 import { createVersion, runCheck, submitForReview } from "@/actions/submissions";
@@ -11,9 +12,9 @@ import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { ImageInput } from "./image-input";
 
 export function RunCheckButton({ submissionId, variant = "secondary" }: { submissionId: string; variant?: "primary" | "secondary" }) {
-  const [state, action, pending] = useActionState(runCheck, null);
+  const { state, onSubmit: action, pending } = useActionForm(runCheck);
   return (
-    <form action={action} className="contents">
+    <form onSubmit={action} className="contents">
       <input type="hidden" name="submission_id" value={submissionId} />
       <Button type="submit" variant={variant} disabled={pending}>
         <ScanSearch className="size-4" aria-hidden /> {pending ? "Checking…" : "Run Check"}
@@ -24,22 +25,13 @@ export function RunCheckButton({ submissionId, variant = "secondary" }: { submis
 }
 
 export function SubmitForReviewButton({ submissionId, warn }: { submissionId: string; warn: boolean }) {
-  const [state, action, pending] = useActionState(submitForReview, null);
+  const { state, onSubmit, pending } = useActionForm(submitForReview, {
+    confirm: () =>
+      !warn ||
+      window.confirm("The automated check flagged potential issues. Submit for compliance review anyway?"),
+  });
   return (
-    <form
-      action={action}
-      className="contents"
-      onSubmit={(e) => {
-        if (
-          warn &&
-          !window.confirm(
-            "The automated check flagged potential issues. Submit for compliance review anyway?",
-          )
-        ) {
-          e.preventDefault();
-        }
-      }}
-    >
+    <form onSubmit={onSubmit} className="contents">
       <input type="hidden" name="submission_id" value={submissionId} />
       <Button type="submit" disabled={pending}>
         <Send className="size-4" aria-hidden /> {pending ? "Submitting…" : "Submit for Review"}
@@ -64,12 +56,12 @@ export function ReviewDecisionForm({
   versionId: string;
   versionNumber: number;
 }) {
-  const [state, action, pending] = useActionState(reviewSubmission, null);
+  const { state, onSubmit: action, pending } = useActionForm(reviewSubmission);
   const [decision, setDecision] = useState<string>("");
   const commentRequired = decision === "changes_requested" || decision === "rejected";
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={action} className="space-y-4">
       <input type="hidden" name="submission_id" value={submissionId} />
       <input type="hidden" name="version_id" value={versionId} />
       <FormFeedback state={state} />
@@ -118,13 +110,13 @@ export function ReviewDecisionForm({
 }
 
 export function CommentForm({ submissionId }: { submissionId: string }) {
-  const [state, action, pending] = useActionState(addComment, null);
+  const { state, onSubmit: action, pending } = useActionForm(addComment);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) ref.current?.reset();
   }, [state]);
   return (
-    <form ref={ref} action={action} className="space-y-2">
+    <form ref={ref} onSubmit={action} className="space-y-2">
       <input type="hidden" name="submission_id" value={submissionId} />
       {state && !state.ok && <p className="text-xs text-red-600">{state.error}</p>}
       <Textarea name="comment" rows={2} placeholder="Add a comment…" aria-label="Comment" required />
@@ -148,9 +140,9 @@ export function NewVersionForm({
   defaults: { creativeText: string; destinationUrl: string };
   currentImageName: string | null;
 }) {
-  const [state, action, pending] = useActionState(createVersion, null);
+  const { state, onSubmit: action, pending } = useActionForm(createVersion);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={action} className="space-y-4">
       <input type="hidden" name="submission_id" value={submissionId} />
       <FormFeedback state={state} />
       <Field label="Creative text" htmlFor="nv-text" error={fieldError(state, "creative_text")}>

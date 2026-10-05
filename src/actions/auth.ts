@@ -19,7 +19,7 @@ function safeNext(next: string | undefined) {
   return "/dashboard";
 }
 
-export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
+export async function login(_prev: LoginState | null, formData: FormData): Promise<LoginState> {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),

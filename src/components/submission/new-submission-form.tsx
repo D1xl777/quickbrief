@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionForm } from "@/components/use-action-form";
+import { useMemo, useState } from "react";
 import { Send, ScanSearch, Save } from "lucide-react";
 import { createSubmission } from "@/actions/submissions";
 import { FormFeedback, fieldError } from "@/components/form-feedback";
@@ -20,7 +21,7 @@ export function NewSubmissionForm({
   brands: BrandOption[];
   jurisdictions: JurisdictionOption[];
 }) {
-  const [state, action, pending] = useActionState(createSubmission, null);
+  const { state, onSubmit: action, pending } = useActionForm(createSubmission);
   const [brandId, setBrandId] = useState(brands.length === 1 ? brands[0]!.id : "");
   const [jurisdictionId, setJurisdictionId] = useState("");
 
@@ -30,7 +31,7 @@ export function NewSubmissionForm({
   }, [brandId, brands, jurisdictions]);
 
   return (
-    <form action={action} className="space-y-6">
+    <form onSubmit={action} className="space-y-6">
       <FormFeedback state={state} />
       <Card>
         <CardHeader title="Campaign" description="Where and how this creative will be published." />

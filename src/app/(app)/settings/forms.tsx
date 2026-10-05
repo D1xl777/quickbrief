@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionForm } from "@/components/use-action-form";
+import { useEffect, useRef } from "react";
 import {
   addMember,
   changeMemberRole,
@@ -13,9 +14,9 @@ import { Field, Input, Select } from "@/components/ui/form";
 import type { MemberRole } from "@/lib/types";
 
 export function OrganizationForm({ name }: { name: string }) {
-  const [state, action, pending] = useActionState(updateOrganization, null);
+  const { state, onSubmit: action, pending } = useActionForm(updateOrganization);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={action} className="space-y-4">
       <FormFeedback state={state} />
       <Field label="Organisation name" htmlFor="org-name" error={fieldError(state, "name")}>
         <Input id="org-name" name="name" defaultValue={name} required maxLength={200} />
@@ -28,13 +29,13 @@ export function OrganizationForm({ name }: { name: string }) {
 }
 
 export function AddMemberForm() {
-  const [state, action, pending] = useActionState(addMember, null);
+  const { state, onSubmit: action, pending } = useActionForm(addMember);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) ref.current?.reset();
   }, [state]);
   return (
-    <form ref={ref} action={action} className="space-y-4">
+    <form ref={ref} onSubmit={action} className="space-y-4">
       <FormFeedback state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Full name" htmlFor="m-name" required error={fieldError(state, "full_name")}>
@@ -76,9 +77,9 @@ export function RoleSelect({
   role: MemberRole;
   disabled?: boolean;
 }) {
-  const [state, action, pending] = useActionState(changeMemberRole, null);
+  const { state, onSubmit: action, pending } = useActionForm(changeMemberRole);
   return (
-    <form action={action} className="flex flex-col items-end gap-1">
+    <form onSubmit={action} className="flex flex-col items-end gap-1">
       <input type="hidden" name="member_id" value={memberId} />
       <Select
         name="role"
@@ -98,13 +99,13 @@ export function RoleSelect({
 }
 
 export function JurisdictionForm() {
-  const [state, action, pending] = useActionState(createJurisdiction, null);
+  const { state, onSubmit: action, pending } = useActionForm(createJurisdiction);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) ref.current?.reset();
   }, [state]);
   return (
-    <form ref={ref} action={action} className="space-y-3">
+    <form ref={ref} onSubmit={action} className="space-y-3">
       <FormFeedback state={state} />
       <div className="flex flex-wrap items-end gap-3">
         <Field label="Code" htmlFor="j-code" className="w-28" error={fieldError(state, "code")}>

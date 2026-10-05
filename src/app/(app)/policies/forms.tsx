@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionForm } from "@/components/use-action-form";
+import { useEffect, useRef, useState } from "react";
 import { addRule, createPolicy } from "@/actions/policies";
 import { FormFeedback, fieldError } from "@/components/form-feedback";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,9 @@ export function PolicyForm({
   jurisdictions: { id: string; name: string }[];
   brands: { id: string; name: string }[];
 }) {
-  const [state, action, pending] = useActionState(createPolicy, null);
+  const { state, onSubmit: action, pending } = useActionForm(createPolicy);
   return (
-    <form action={action} className="space-y-5">
+    <form onSubmit={action} className="space-y-5">
       <FormFeedback state={state} />
       <Field label="Policy name" htmlFor="name" required error={fieldError(state, "name")}>
         <Input id="name" name="name" required placeholder="e.g. UK Marketing Policy" />
@@ -65,7 +66,7 @@ const NEEDS_PHRASES: RuleType[] = [
 ];
 
 export function RuleForm({ policyId }: { policyId: string }) {
-  const [state, action, pending] = useActionState(addRule, null);
+  const { state, onSubmit: action, pending } = useActionForm(addRule);
   const [ruleType, setRuleType] = useState<RuleType>("required_phrase");
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -80,7 +81,7 @@ export function RuleForm({ policyId }: { policyId: string }) {
         : "One per line. Case-insensitive.";
 
   return (
-    <form ref={ref} action={action} className="space-y-4">
+    <form ref={ref} onSubmit={action} className="space-y-4">
       <input type="hidden" name="policy_id" value={policyId} />
       <FormFeedback state={state} />
       <div className="grid gap-4 sm:grid-cols-3">

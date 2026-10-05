@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useRef } from "react";
+import { useActionForm } from "@/components/use-action-form";
 import { login, type LoginState } from "@/actions/auth";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -17,15 +18,14 @@ export function LoginForm({
   initialError?: string;
   demoAccounts: readonly DemoAccount[];
 }) {
-  const [state, action, pending] = useActionState<LoginState, FormData>(login, {
-    error: initialError,
-  });
+  const { state: result, onSubmit, pending } = useActionForm<LoginState>(login);
+  const state: LoginState = result ?? { error: initialError };
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="space-y-6">
-      <form action={action} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4">
         {next && <input type="hidden" name="next" value={next} />}
         {state.error && <Alert tone="error">{state.error}</Alert>}
         <Field label="Work email" htmlFor="email">

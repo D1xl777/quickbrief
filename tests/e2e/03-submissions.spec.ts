@@ -76,4 +76,6 @@ test("validation errors are shown", async ({ page }) => {
   await page.getByLabel("Channel").selectOption({ label: "Email" });
   await page.getByRole("button", { name: "Save Draft" }).click();
   await expect(page.getByText("Add creative text, an image, or both.")).toBeVisible();
+  // What the user typed is kept after a validation error.
+  await expect(page.getByLabel("Campaign name")).toHaveValue("Validation test");
 });
