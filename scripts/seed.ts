@@ -16,6 +16,7 @@ import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/database.types";
 import { DEMO_ACCOUNTS } from "../src/lib/demo";
+import { DEMO_POLICIES } from "./demo/policies";
 
 config({ path: ".env.local" });
 config();
@@ -103,6 +104,96 @@ async function main() {
       .select(),
     "members",
   );
+
+  console.log("Creating jurisdictions…");
+  const jurisdictions = must(
+    await db
+      .from("jurisdictions")
+      .insert([
+        { organization_id: org.id, code: "UK", name: "United Kingdom" },
+        { organization_id: org.id, code: "SE", name: "Sweden" },
+        { organization_id: org.id, code: "NL", name: "Netherlands" },
+      ])
+      .select(),
+    "jurisdictions",
+  );
+  const jByCode = new Map(jurisdictions.map((j) => [j.code, j]));
+
+  console.log("Creating brands…");
+  const brands = must(
+    await db
+      .from("brands")
+      .insert([
+        {
+          organization_id: org.id,
+          name: "NovaBet",
+          description: "Sportsbook brand focused on football and tennis markets.",
+          internal_notes:
+            "All NovaBet creatives for UK go through second-line review when they mention odds.",
+        },
+        {
+          organization_id: org.id,
+          name: "Orbit Casino",
+          description: "Online casino brand with slots and live casino tables.",
+          internal_notes: "Follow the DEMO Orbit Casino Brand Guidelines in addition to market rules.",
+        },
+      ])
+      .select(),
+    "brands",
+  );
+  const bByName = new Map(brands.map((b) => [b.name, b]));
+  must(
+    await db
+      .from("brand_jurisdictions")
+      .insert([
+        { brand_id: bByName.get("NovaBet")!.id, jurisdiction_id: jByCode.get("UK")!.id, organization_id: org.id },
+        { brand_id: bByName.get("NovaBet")!.id, jurisdiction_id: jByCode.get("NL")!.id, organization_id: org.id },
+        { brand_id: bByName.get("Orbit Casino")!.id, jurisdiction_id: jByCode.get("UK")!.id, organization_id: org.id },
+        { brand_id: bByName.get("Orbit Casino")!.id, jurisdiction_id: jByCode.get("SE")!.id, organization_id: org.id },
+      ])
+      .select(),
+    "brand jurisdictions",
+  );
+
+  console.log("Creating DEMO policies and rules…");
+  for (const p of DEMO_POLICIES) {
+    const policy = must(
+      await db
+        .from("policies")
+        .insert({
+          organization_id: org.id,
+          name: p.name,
+          description: p.description,
+          jurisdiction_id: p.jurisdictionCode ? jByCode.get(p.jurisdictionCode)!.id : null,
+          brand_id: p.brandName ? bByName.get(p.brandName)!.id : null,
+          is_demo: true,
+          created_by: adminId,
+        })
+        .select()
+        .single(),
+      `policy ${p.name}`,
+    );
+    must(
+      await db
+        .from("policy_rules")
+        .insert(
+          p.rules.map((r) => ({
+            organization_id: org.id,
+            policy_id: policy.id,
+            code: r.code,
+            title: r.title,
+            rule_type: r.rule_type,
+            category: r.category,
+            severity: r.severity,
+            config: { phrases: r.phrases ?? [], match: r.match ?? "any" },
+            channels: r.channels ?? [],
+            explanation: r.explanation,
+          })),
+        )
+        .select(),
+      `rules for ${p.name}`,
+    );
+  }
 
   console.log("\nDemo data created.");
   console.log(`Log in with any of these emails and the password from DEMO_USER_PASSWORD:`);
