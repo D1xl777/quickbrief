@@ -31,7 +31,7 @@ async function uploadLogo(
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
     throw new UserFacingError("Logo must be a PNG, JPEG, WebP or GIF image.");
   }
-  if (file.size > MAX_UPLOAD_BYTES) throw new UserFacingError("Logo must be 5 MB or smaller.");
+  if (file.size > MAX_UPLOAD_BYTES) throw new UserFacingError("Logo must be 4 MB or smaller.");
   const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
   const path = `${orgId}/brand-logos/${brandId}-${Date.now()}.${ext}`;
   const { error } = await admin.storage

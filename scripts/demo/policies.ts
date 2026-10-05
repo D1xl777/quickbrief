@@ -96,7 +96,7 @@ export const DEMO_POLICIES: DemoPolicy[] = [
         rule_type: "required_phrase",
         category: "Safer gambling",
         severity: "high",
-        phrases: ["BeGambleAware", "Please gamble responsibly", "Take time to think"],
+        phrases: ["Please gamble responsibly", "Take time to think"],
         explanation: "Demo rule: creative must include one of the configured safer gambling messages.",
       },
       {
@@ -145,12 +145,12 @@ export const DEMO_POLICIES: DemoPolicy[] = [
       },
       {
         code: "DEMO-SE-002",
-        title: "Support line reference",
+        title: "Responsible play message",
         rule_type: "required_phrase",
         category: "Safer gambling",
         severity: "high",
-        phrases: ["Stödlinjen", "stodlinjen.se"],
-        explanation: "Demo rule: creative must reference the configured support line.",
+        phrases: ["Spela ansvarsfullt"],
+        explanation: "Demo rule: creative must include the configured responsible play message.",
       },
       {
         code: "DEMO-SE-003",
@@ -184,7 +184,7 @@ export const DEMO_POLICIES: DemoPolicy[] = [
         rule_type: "required_phrase",
         category: "Safer gambling",
         severity: "high",
-        phrases: ["Stop op tijd"],
+        phrases: ["Speel bewust"],
         explanation: "Demo rule: creative must include the configured moderation message.",
       },
       {

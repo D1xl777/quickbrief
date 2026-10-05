@@ -84,5 +84,6 @@ export const OUTCOME_LABELS: Record<CheckOutcome, string> = {
   potential_issue: "Potential issue detected",
 };
 
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+// 4 MB keeps uploads under the ~4.5 MB request limit of Vercel functions.
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 export const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];

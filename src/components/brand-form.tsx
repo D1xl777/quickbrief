@@ -74,7 +74,7 @@ export function BrandForm({
           rows={4}
         />
       </Field>
-      <Field label="Logo (optional)" htmlFor="logo" hint="PNG, JPEG, WebP or GIF, max 5 MB.">
+      <Field label="Logo (optional)" htmlFor="logo" hint="PNG, JPEG, WebP or GIF, max 4 MB.">
         <Input
           id="logo"
           name="logo"
