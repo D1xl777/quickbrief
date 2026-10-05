@@ -17,6 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/database.types";
 import { DEMO_ACCOUNTS } from "../src/lib/demo";
 import { DEMO_POLICIES } from "./demo/policies";
+import { seedSubmissions } from "./demo/run-submissions";
 
 config({ path: ".env.local" });
 config();
@@ -194,6 +195,15 @@ async function main() {
       `rules for ${p.name}`,
     );
   }
+
+  console.log("Creating demo submissions…");
+  await seedSubmissions(db, {
+    orgId: org.id,
+    marketing: { id: marketingId, email: marketingAcc.email },
+    compliance: { id: complianceId, email: complianceAcc.email },
+    brands: bByName,
+    jurisdictions: jByCode,
+  });
 
   console.log("\nDemo data created.");
   console.log(`Log in with any of these emails and the password from DEMO_USER_PASSWORD:`);

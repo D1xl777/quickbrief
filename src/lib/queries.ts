@@ -27,7 +27,7 @@ export type SubmissionListItem = Awaited<ReturnType<typeof listSubmissions>>[num
 
 export async function listAuditEvents(
   supabase: Client,
-  opts: { limit?: number; submissionId?: string; action?: string; before?: string } = {},
+  opts: { limit?: number; submissionId?: string; action?: string; before?: string; hideLogins?: boolean } = {},
 ) {
   let query = supabase
     .from("audit_events")
@@ -36,6 +36,7 @@ export async function listAuditEvents(
   if (opts.submissionId) query = query.eq("submission_id", opts.submissionId);
   if (opts.action) query = query.like("action", `${opts.action}%`);
   if (opts.before) query = query.lt("created_at", opts.before);
+  if (opts.hideLogins) query = query.neq("action", "user.logged_in");
   query = query.limit(opts.limit ?? 50);
   const { data, error } = await query;
   if (error) throw new Error(`Could not load audit events: ${error.message}`);

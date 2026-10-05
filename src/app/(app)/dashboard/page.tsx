@@ -39,7 +39,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
     countBy("approved", startOfMonthUtc()),
     countBy("rejected"),
     listSubmissions(supabase, { limit: 6 }),
-    listAuditEvents(supabase, { limit: 8 }),
+    listAuditEvents(supabase, { limit: 8, hideLogins: true }),
   ]);
 
   const stats = [
@@ -115,7 +115,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
               }
             />
           ) : (
-            <SubmissionsTable submissions={recent} showCreator={member.role !== "marketing"} />
+            <SubmissionsTable submissions={recent} compact />
           )}
         </Card>
         <Card>

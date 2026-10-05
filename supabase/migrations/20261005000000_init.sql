@@ -98,8 +98,8 @@ create table public.policies (
   name text not null check (char_length(name) between 1 and 200),
   description text not null default '',
   -- null jurisdiction / brand = applies to all
-  jurisdiction_id uuid references public.jurisdictions (id) on delete restrict,
-  brand_id uuid references public.brands (id) on delete restrict,
+  jurisdiction_id uuid references public.jurisdictions (id),
+  brand_id uuid references public.brands (id),
   version integer not null default 1 check (version >= 1),
   is_demo boolean not null default true,
   status text not null default 'active' check (status in ('active', 'inactive')),
@@ -134,8 +134,8 @@ create table public.submissions (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,
   campaign_name text not null check (char_length(campaign_name) between 1 and 200),
-  brand_id uuid not null references public.brands (id) on delete restrict,
-  jurisdiction_id uuid not null references public.jurisdictions (id) on delete restrict,
+  brand_id uuid not null references public.brands (id),
+  jurisdiction_id uuid not null references public.jurisdictions (id),
   channel public.channel not null,
   status public.submission_status not null default 'draft',
   internal_notes text not null default '',
@@ -299,7 +299,10 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  new.updated_at = now();
+  -- Respect an explicitly provided value (used by the demo seed); otherwise stamp now().
+  if new.updated_at is not distinct from old.updated_at then
+    new.updated_at = now();
+  end if;
   return new;
 end;
 $$;

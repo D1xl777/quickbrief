@@ -9,11 +9,49 @@ export function SubmissionsTable({
   submissions,
   showCreator = true,
   timeColumn = "updated",
+  compact = false,
 }: {
   submissions: SubmissionListItem[];
   showCreator?: boolean;
   timeColumn?: "updated" | "submitted";
+  /** Fewer columns, for narrow cards such as the dashboard. */
+  compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <Table>
+        <thead>
+          <tr>
+            <Th>Campaign</Th>
+            <Th>Status</Th>
+            <Th className="text-right">Updated</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {submissions.map((s) => (
+            <tr key={s.id} className="hover:bg-zinc-50">
+              <Td className="max-w-80">
+                <Link
+                  href={`/submissions/${s.id}`}
+                  className="block truncate font-medium text-ink hover:text-brand-600"
+                >
+                  {s.campaign_name}
+                </Link>
+                <p className="truncate text-xs text-ink-subtle">
+                  {s.brand?.name} · {s.jurisdiction?.name} · {CHANNEL_LABELS[s.channel]} · v
+                  {s.current_version?.version_number ?? 1}
+                </p>
+              </Td>
+              <Td>
+                <SubmissionStatusBadge status={s.status} />
+              </Td>
+              <Td className="text-right whitespace-nowrap text-ink-muted">{formatRelative(s.updated_at)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    );
+  }
   return (
     <Table>
       <thead>
